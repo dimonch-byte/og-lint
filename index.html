@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>og:image not showing on LinkedIn? Paste your &lt;head&gt; — free Open Graph tag lint</title>
+<meta name="description" content="Free, in-browser lint for the Open Graph and Twitter card tags in your page's <head>. Finds the markup mistakes behind missing LinkedIn, Slack, X and Facebook previews. Nothing is uploaded.">
+<meta property="og:title" content="og:image not showing? Free Open Graph tag lint">
+<meta property="og:description" content="Paste your page's <head>. Finds missing/relative og:image, wrong sizes, duplicate tags. Runs in your browser.">
+<meta property="og:type" content="website">
+<style>
+body{font:16px/1.5 system-ui,sans-serif;max-width:860px;margin:2rem auto;padding:0 1rem;color:#111}
+textarea{width:100%;height:220px;font:13px ui-monospace,monospace}
+button{font-size:1rem;padding:.5rem 1rem;margin:.5rem 0;cursor:pointer}
+.r{padding:.35rem .6rem;margin:.25rem 0;border-radius:4px}.FAIL{background:#fde2e2}.WARN{background:#fff4d6}.PASS{background:#e3f6e8}
+small,.muted{color:#555}code{background:#f3f3f3;padding:0 .2rem}
+</style></head><body>
+<h1>og:image not showing on LinkedIn, Slack or X?</h1>
+<p>Paste the <code>&lt;head&gt;</code> of your page (View Source → copy from <code>&lt;head&gt;</code> to <code>&lt;/head&gt;</code>). This lint checks the <b>markup</b> only and runs entirely in your browser — nothing is sent anywhere.</p>
+<label>Page URL (optional, used to spot relative image URLs and host mismatches)<br><input id="u" style="width:100%" placeholder="https://example.com/blog/post"></label>
+<textarea id="h" placeholder="<head> ... </head>"></textarea>
+<button id="go">Lint my tags</button>
+<div id="out"></div>
+<h2>What this can't see</h2>
+<p class="muted">A markup lint can't tell you what a crawler actually received. The most common non-markup causes: the bot is <b>blocked</b> (Cloudflare Bot Fight Mode / WAF returning 403 to <code>facebookexternalhit</code> or <code>LinkedInBot</code>), the image URL <b>redirects or 404s</b>, the image is <b>SVG/WebP-only</b> or too large, or the platform is showing a <b>cached</b> preview (re-scrape in LinkedIn Post Inspector / Facebook Sharing Debugger).</p>
+<p>To check those from the live URL, the free check at <a href="https://sharepack.adjudi.com/?utm_source=github&utm_medium=checker&utm_campaign=sharepack-intent-w2&utm_content=og-lint">SharePack</a> requests your page the way social bots do and shows what came back. <small>Disclosure: I build SharePack. The free check is free; the optional $29 one-time repair pack generates the tags and a correctly sized image set for your page. It's not a design tool.</small></p>
+<script>
+const $=s=>document.querySelector(s);
+function lint(){
+  const html=$('#h').value, base=$('#u').value.trim(), out=[];
+  const doc=new DOMParser().parseFromString('<html>'+html+'</html>','text/html');
+  const metas=[...doc.querySelectorAll('meta')];
+  const get=k=>metas.filter(m=>(m.getAttribute('property')||m.getAttribute('name')||'').toLowerCase()===k).map(m=>m.getAttribute('content')||'');
+  const add=(lvl,msg)=>out.push([lvl,msg]);
+  const one=(k,req)=>{const v=get(k);if(!v.length){add(req?'FAIL':'WARN',`Missing <code>${k}</code>`);return null}
+    if(v.length>1)add('WARN',`${v.length} × <code>${k}</code> — platforms may pick the first or the last; keep one`);
+    if(!v[0].trim()){add('FAIL',`<code>${k}</code> is empty`);return null}return v[0].trim()};
+  const t=one('og:title',true), d=one('og:description',false), img=one('og:image',true), url=one('og:url',false); one('og:type',false);
+  if(img){
+    if(!/^https?:\/\//i.test(img))add('FAIL',`og:image is not an absolute URL (<code>${img}</code>). Crawlers need https://…`);
+    else if(/^http:\/\//i.test(img))add('WARN','og:image uses http:// — use https://');
+    if(/\.svg(\?|$)/i.test(img))add('FAIL','og:image is SVG — LinkedIn, X and Facebook do not render SVG previews. Use PNG or JPG.');
+    if(/\.webp(\?|$)/i.test(img))add('WARN','og:image is WebP — some platforms still fall back; PNG/JPG is safest.');
+    if(/localhost|127\.0\.0\.1|\.vercel\.app|\.netlify\.app|staging|preview/i.test(img))add('WARN','og:image points at a local/preview host — production crawlers may not reach it.');
+    if(base){try{const b=new URL(base),i=new URL(img,base);if(i.host!==b.host)add('PASS',`og:image is on another host (${i.host}) — fine, but that host must also allow bots.`)}catch(e){}}
+    const w=get('og:image:width')[0],h=get('og:image:height')[0];
+    if(!w||!h)add('WARN','No <code>og:image:width</code>/<code>height</code> — adding 1200×627 (LinkedIn) / 1200×630 helps first-share rendering.');
+    else if(+w<1200||+h<600)add('WARN',`Declared size ${w}×${h} — LinkedIn large cards want ≥1200×627.`);
+    if(!get('og:image:alt').length&&!get('twitter:image:alt').length)add('WARN','No image alt text (<code>og:image:alt</code>).');
+  }
+  if(t&&t.length>120)add('WARN','og:title is long (>120 chars); it will be truncated.');
+  if(url&&base){try{if(new URL(url).host!==new URL(base).host)add('WARN',`og:url host (${new URL(url).host}) differs from the page host — platforms may scrape og:url instead.`)}catch(e){}}
+  const tc=get('twitter:card')[0];
+  if(!tc)add('WARN','Missing <code>twitter:card</code> — X falls back to a small card. Use <code>summary_large_image</code>.');
+  else if(!['summary','summary_large_image','app','player'].includes(tc))add('FAIL',`twitter:card value "${tc}" is not valid.`);
+  if(!get('twitter:image').length&&img)add('PASS','No twitter:image — X will fall back to og:image (OK).');
+  const nameOg=metas.filter(m=>/^og:/i.test(m.getAttribute('name')||'')&&!m.getAttribute('property'));
+  if(nameOg.length)add('WARN',`${nameOg.length} og: tag(s) use <code>name=</code> instead of <code>property=</code> — Facebook/LinkedIn expect property=.`);
+  if(!html.toLowerCase().includes('<meta'))add('FAIL','No <meta> tags found — did you paste the rendered HTML? JS-rendered tags are invisible to most social bots.');
+  if(!out.some(o=>o[0]!=='PASS'))add('PASS','Markup looks fine. If the preview is still wrong, the cause is probably bot blocking, a redirecting/404 image, or a cached preview — see below.');
+  $('#out').innerHTML=out.map(([l,m])=>`<div class="r ${l}"><b>${l}</b> ${m}</div>`).join('');
+}
+$('#go').onclick=lint;
+</script>
+<p class="muted"><small>MIT · 9213651 Canada Inc. · idealstoronto@gmail.com · This page sets no cookies and loads no third-party scripts.</small></p>
+</body></html>
