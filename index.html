@@ -21,7 +21,7 @@ small,.muted{color:#555}code{background:#f3f3f3;padding:0 .2rem}
 <div id="out"></div>
 <h2>What this can't see</h2>
 <p class="muted">A markup lint can't tell you what a crawler actually received. The most common non-markup causes: the bot is <b>blocked</b> (Cloudflare Bot Fight Mode / WAF returning 403 to <code>facebookexternalhit</code> or <code>LinkedInBot</code>), the image URL <b>redirects or 404s</b>, the image is <b>SVG/WebP-only</b> or too large, or the platform is showing a <b>cached</b> preview (re-scrape in LinkedIn Post Inspector / Facebook Sharing Debugger).</p>
-<p>To check those from the live URL, the free check at <a href="https://sharepack.adjudi.com/?utm_source=github&utm_medium=checker&utm_campaign=sharepack-intent-w2&utm_content=og-lint">SharePack</a> requests your page the way social bots do and shows what came back. <small>Disclosure: I build SharePack. The free check is free; the optional $29 one-time repair pack generates the tags and a correctly sized image set for your page. It's not a design tool.</small></p>
+<p>To check those from the live URL, the free check at SharePack (linked in your results when the lint finds a problem) requests your page the way social bots do and shows what came back. <small>Disclosure: I build SharePack. The free check is free; the optional $29 one-time repair pack generates the tags and a correctly sized image set for your page. It's not a design tool.</small></p>
 <script>
 const $=s=>document.querySelector(s);
 function lint(){
@@ -56,7 +56,10 @@ function lint(){
   if(nameOg.length)add('WARN',`${nameOg.length} og: tag(s) use <code>name=</code> instead of <code>property=</code> — Facebook/LinkedIn expect property=.`);
   if(!html.toLowerCase().includes('<meta'))add('FAIL','No <meta> tags found — did you paste the rendered HTML? JS-rendered tags are invisible to most social bots.');
   if(!out.some(o=>o[0]!=='PASS'))add('PASS','Markup looks fine. If the preview is still wrong, the cause is probably bot blocking, a redirecting/404 image, or a cached preview — see below.');
-  $('#out').innerHTML=out.map(([l,m])=>`<div class="r ${l}"><b>${l}</b> ${m}</div>`).join('');
+  let link='';
+  if(out.some(o=>o[0]!=='PASS')){let site='';try{site=new URL(base||url).href}catch(e){}
+    link=`<p>Check what each real crawler gets from the live page: <a href="https://sharepack.adjudi.com/?${site?'url='+encodeURIComponent(site)+'&':''}utm_source=github&utm_medium=checker&utm_campaign=sharepack-intent-w2&utm_content=og-lint-result">free SharePack check${site?' for '+new URL(site).host:''}</a></p>`}
+  $('#out').innerHTML=out.map(([l,m])=>`<div class="r ${l}"><b>${l}</b> ${m}</div>`).join('')+link;
 }
 $('#go').onclick=lint;
 </script>
